@@ -13,7 +13,9 @@ const Header = () => {
               className="bg-white text-primary-300 px-12 py-3 rounded-xl font-pretendard text-base">
                 로그인
             </button>
-            <button className="bg-primary-300 text-white px-12 py-3 rounded-xl font-pretendard text-base">
+            <button 
+              onClick={() => navigate('/register')}
+              className="bg-primary-300 text-white px-12 py-3 rounded-xl font-pretendard text-base">
                 회원가입
             </button>
             </div>

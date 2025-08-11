@@ -80,7 +80,7 @@ const LoginForm = () => {
         {/* 회원가입 */}
         <p className="mt-4 text-center text-sm text-gray-500">
           아직 회원이 아니신가요?{" "}
-          <a href="#" className="text-primary-300 hover:underline">
+          <a href="/register" className="text-primary-300 hover:underline">
             회원가입하기
           </a>
         </p>
