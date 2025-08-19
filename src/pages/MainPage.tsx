@@ -1,15 +1,13 @@
-import Header from '../components/Header'
-import beachImage from '../assets/beach.jpg'
+import Main from "../components/MainForm"
+import Header from "../components/Header"
 
 const MainPage = () => {
-  return (
-    <div
-      className="relative w-full h-full bg-cover bg-center"
-      style={{ backgroundImage: `url(${beachImage})` }}
-    >
-      <Header />
-    </div>
-  )
+    return(
+        <div>
+            <Header/>
+            <Main/>
+        </div>
+    )
 }
 
-export default MainPage
+export default MainPage;

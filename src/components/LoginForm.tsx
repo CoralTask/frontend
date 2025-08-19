@@ -1,11 +1,31 @@
 import { useState } from "react";
 import { FaUser, FaLock } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { useLogin } from "../hooks/useLogin"; 
 
 const LoginForm = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-
   const isFormValid = username.trim() !== "" && password.trim() !== "";
+
+  const navigate = useNavigate();
+  const loginMutation = useLogin();
+
+  const handleLogin = () => {
+    if (!isFormValid) return;
+
+    loginMutation.mutate(
+      { username, password },
+      {
+        onSuccess: () => {
+          navigate("/main");
+        },
+        onError: (err: any) => {
+          alert(err.message); 
+        },
+      }
+    );
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-white">
@@ -72,9 +92,10 @@ const LoginForm = () => {
               ? "bg-primary-300 text-white hover:bg-primary-400"
               : "bg-gray-300 text-gray-400 cursor-not-allowed"
           }`}
-          disabled={!isFormValid}
+          disabled={!isFormValid || loginMutation.isPending}
+          onClick={handleLogin}
         >
-          로그인하기
+          {loginMutation.isPending ? "로그인 중..." : "로그인하기"}
         </button>
 
         {/* 회원가입 */}
