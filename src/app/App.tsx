@@ -1,9 +1,9 @@
 import { Routes, Route } from 'react-router-dom'
-import StartPage from './pages/StartPage'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import MainPage from "./pages/MainPage"
-import ProfilePage from "./pages/ProfilePage"
+import StartPage from '../features/landing/presentation/pages/StartPage'
+import LoginPage from '../features/auth/presentation/pages/LoginPage'
+import RegisterPage from '../features/auth/presentation/pages/RegisterPage'
+import MainPage from "../features/calendar/presentation/pages/MainPage"
+import ProfilePage from "../features/auth/presentation/pages/ProfilePage"
 
 const App = () => {
   return (

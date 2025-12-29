@@ -1,5 +1,5 @@
-import Header from '../components/Header'
-import beachImage from '../assets/beach.jpg'
+import Header from '../../../../shared/ui/Header/Header'
+import beachImage from '../../../../assets/beach.png'
 
 const StartPage = () => {
   return (

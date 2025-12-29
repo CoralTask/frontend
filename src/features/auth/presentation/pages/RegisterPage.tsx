@@ -1,4 +1,4 @@
-import Header from '../components/Header'
+import Header from '../../../../shared/ui/Header/Header'
 import Register from '../components/RegisterForm'
 
 const RegisterPage = () => {

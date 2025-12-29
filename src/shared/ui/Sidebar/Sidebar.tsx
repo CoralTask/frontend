@@ -38,7 +38,7 @@ const DUMMY_NOTIS = new Array(6).fill(0).map((_, i) => ({
 
 export default function Sidebar({
   active = "Calendar",
-  onChange,
+  onChange, 
 }: {
   active?: NavKey;
   onChange?: (k: NavKey) => void;

@@ -4,12 +4,17 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
 import type { DatesSetArg, DayCellContentArg } from "@fullcalendar/core";
-import { DayPicker } from "react-day-picker";
+import {
+  DayPicker,
+  useDayPicker,
+  getDefaultClassNames,
+  type MonthCaptionProps
+} from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import "@fullcalendar/daygrid/index.cjs";
 import { ko } from "date-fns/locale";
 import { format, isSameDay, parseISO, isWithinInterval } from "date-fns";
-import Sidebar from "./Sidebar";
+import Sidebar from "../../../../shared/ui/Sidebar/Sidebar";
 
 type ViewMode = "month" | "week";
 
@@ -21,6 +26,7 @@ type EventItem = {
 };
 
 const MainForm = () => {
+  const defaultClassNames = getDefaultClassNames();
   const calendarRef = useRef<FullCalendar | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [month, setMonth] = useState<Date>(new Date());
@@ -73,77 +79,100 @@ const onDateClick = (info: DateClickArg) => {
   return (
     <div className="flex h-screen bg-white">
       <Sidebar active="Calendar" />
-
       <main className="flex-1 bg-white overflow-y-auto">
-        {/* 페이지 타이틀 + 일정추가 버튼 */}
-        <div className="px-8 pt-8 pb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-800">캘린더</h2>
-          <button className="bg-primary-300 text-white px-5 py-2 rounded-lg hover:bg-primary-400 shadow">
-            일정 추가하기
-          </button>
-        </div>
+        <div className="px-8 py-8 pb-10 flex gap-6">
+          {/* 왼쪽: 버튼 기준으로 폭이 정해지는 컬럼 */}
+          <div className="shrink-0 flex flex-col gap-4 items-stretch">
+            {/* 버튼: 너비는 px-36 패딩으로 유지 */}
+            <button className="self-start border border-primary-300 text-primary-300 px-36 py-3 rounded-lg hover:bg-primary-400 shadow">
+              일정 추가하기
+            </button>
 
-        <div className="px-8 pb-10 grid grid-cols-4 gap-6">
-          {/* ───────── 작은 달력 카드 ───────── */}
-          <div className="col-span-1 bg-white p-4 rounded-xl border shadow-sm">
+            {/* 작은 달력 + 일정 현황 카드: 컬럼 너비를 그대로 따라감 */}
+            <div className="bg-black p-5 rounded-xl overflow-hidden">
+              {/* ---- DayPicker ---- */}
+              <div className="bg-white p-5 rounded-xl w-full overflow-hidden">
+                <DayPicker
+                  mode="single"
+                  month={month}
+                  onMonthChange={setMonth}
+                  selected={selectedDate}
+                  onSelect={(day) => {
+                    setSelectedDate(day);
+                    if (day) {
+                      const api = calendarRef.current?.getApi();
+                      api?.gotoDate(day);
+                      api?.select(day);
+                      setMonth(day);
+                    }
+                  }}
+                  weekStartsOn={0}
+                  locale={ko}
+                  hideNavigation
+                  components={{
+                    MonthCaption: (props: MonthCaptionProps) => {
+                      const { previousMonth, nextMonth, goToMonth } = useDayPicker();
+                      const curr = props.calendarMonth.date;
 
-            <DayPicker
-              mode="single"
-              month={month}                 
-              onMonthChange={setMonth}      
-              selected={selectedDate}
-              onSelect={(day) => {
-                setSelectedDate(day);
-                if (day) {
-                  const api = calendarRef.current?.getApi();
-                  api?.gotoDate(day);
-                  api?.select(day);
-                  setMonth(day);
-                }
-              }}
-              weekStartsOn={0}
-              locale={ko}
-              formatters={{
-                formatCaption: (month, options) =>
-                  `${month.getFullYear()}년 ${month.getMonth() + 1}월`,
-              }}
-              styles={{
-                day_selected: {
-                  outline: "2px solid #00bfa5",
-                  color: "#00bfa5",
-                  backgroundColor: "transparent",
-                  borderRadius: "50%",
-                },
-                day_today: {
-                  border: "2px dashed #00bfa5",
-                  borderRadius: "50%",
-                },
-              }}
-            />
-
-
-            {/* 선택 날짜 일정 목록 */}
-            <div className="mt-4">
-              <div className="text-sm text-gray-700 font-semibold mb-2">
-                {selectedDate ? format(selectedDate, "yyyy.MM.dd (eee)", { locale: ko }) : ""}
+                      return (
+                        <div className="flex items-center justify-center gap-3 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => previousMonth && goToMonth(previousMonth)}
+                            disabled={!previousMonth}
+                            className="px-2 text-gray-600 hover:text-primary-300 disabled:opacity-30"
+                          >
+                            {"<"}
+                          </button>
+                          <span className="font-semibold text-gray-800 text-primary-300">
+                            {format(curr, "yyyy.MM", { locale: ko })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => nextMonth && goToMonth(nextMonth)}
+                            disabled={!nextMonth}
+                            className="px-2 text-gray-600 hover:text-primary-300 disabled:opacity-30"
+                          >
+                            {">"}
+                          </button>
+                        </div>
+                      );
+                    },
+                  }}
+                  classNames={{
+                    month: "w-full",
+                    head_cell: "text-center",
+                    cell: "text-center",
+                    today: "text-black",
+                    selected: "bg-primary-300 text-white rounded-full",
+                  }}
+                />
               </div>
-              {selectedDayEvents.length === 0 ? (
-                <div className="text-xs text-gray-400">등록된 일정이 없습니다.</div>
-              ) : (
-                <ul className="space-y-1">
-                  {selectedDayEvents.map((e, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span
-                        className="mt-1 inline-block w-2 h-2 rounded-full"
-                        style={{ backgroundColor: e.color }}
-                      />
-                      <span className="text-sm text-gray-700">{e.title}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+
+              {/* ---- 선택 날짜 일정 목록 ---- */}
+              <div className="mt-4">
+                <div className="text-sm text-gray-700 font-semibold mb-2">
+                  {selectedDate ? format(selectedDate, "yyyy.MM.dd (eee)", { locale: ko }) : ""}
+                </div>
+                {selectedDayEvents.length === 0 ? (
+                  <div className="text-xs text-gray-400">등록된 일정이 없습니다.</div>
+                ) : (
+                  <ul className="space-y-1">
+                    {selectedDayEvents.map((e, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span
+                          className="mt-1 inline-block w-2 h-2 rounded-full"
+                          style={{ backgroundColor: e.color }}
+                        />
+                        <span className="text-sm text-gray-700">{e.title}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
+
 
           {/* ───────── 큰 캘린더 카드 ───────── */}
           <div className="col-span-3 bg-white rounded-xl shadow p-4">
