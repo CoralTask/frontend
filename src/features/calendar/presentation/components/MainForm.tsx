@@ -1,304 +1,662 @@
-// MainForm.tsx
 import { useMemo, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin, { type DateClickArg } from "@fullcalendar/interaction";
-import type { DatesSetArg, DayCellContentArg } from "@fullcalendar/core";
+import type { DatesSetArg } from "@fullcalendar/core";
+
 import {
   DayPicker,
   useDayPicker,
   getDefaultClassNames,
-  type MonthCaptionProps
+  type MonthCaptionProps,
 } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import "@fullcalendar/daygrid/index.cjs";
+
 import { ko } from "date-fns/locale";
-import { format, isSameDay, parseISO, isWithinInterval } from "date-fns";
+import {
+  addDays,
+  format,
+  isSameDay,
+  isWithinInterval,
+  parseISO,
+  startOfWeek,
+} from "date-fns";
+
 import Sidebar from "../../../../shared/ui/Sidebar/Sidebar";
 
 type ViewMode = "month" | "week";
 
+type EventTask = { id: string; label: string; done?: boolean };
 type EventItem = {
+  id: string;
   title: string;
-  start: string;
-  end?: string; // FullCalendar end는 exclusive
-  color: string;
+  start: string; 
+  end?: string; 
+  color: string; 
+  tags?: string[];
+  tasks?: EventTask[];
 };
 
-const MainForm = () => {
+type TodoCard = {
+  id: string;
+  title: string;
+  items: string[];
+};
+
+const DUMMY_EVENTS: EventItem[] = [
+  { id: "1", title: "Scelerisque mauris", start: "2025-05-05", color: "#F1B7B4" },
+  {
+    id: "2",
+    title: "Convallis egestas in aliquet",
+    start: "2025-05-05",
+    end: "2025-05-08",
+    color: "#A9AFB7",
+  },
+  { id: "3", title: "Fringilla arcu donec", start: "2025-05-15", color: "#F1726A" },
+  { id: "4", title: "Turpis venenatis bibendum", start: "2025-05-19", color: "#2D3436" },
+  { id: "5", title: "Nibh", start: "2025-05-23", color: "#BFEFF0" },
+
+  {
+    id: "w1",
+    title: "Massa volutpat",
+    start: "2025-05-12",
+    color: "#00BDBD",
+    tags: ["회의준비", "문서작업"],
+    tasks: [{ id: "t1", label: "Vitae sed", done: true }],
+  },
+  {
+    id: "w2",
+    title: "Nunc maecenas",
+    start: "2025-05-13",
+    color: "#00BDBD",
+    tags: ["회의준비", "백엔드"],
+  },
+  {
+    id: "w3",
+    title: "In elementum",
+    start: "2025-05-14",
+    color: "#00BDBD",
+    tags: ["프론트", "리팩터링"],
+  },
+  {
+    id: "w4",
+    title: "Morbi lacus",
+    start: "2025-05-15",
+    color: "#00BDBD",
+    tags: ["디자인", "정리"],
+  },
+  {
+    id: "w5",
+    title: "Pulvinar at",
+    start: "2025-05-16",
+    color: "#00BDBD",
+    tags: ["테스트", "배포"],
+  },
+  {
+    id: "w6",
+    title: "Massa volutpat",
+    start: "2025-05-15",
+    end: "2025-05-16",
+    color: "#00BDBD",
+    tags: ["회의준비", "백엔드"],
+    tasks: [
+      { id: "t2", label: "Bibendum urna", done: true },
+      { id: "t3", label: "Viverra tortor", done: false },
+      { id: "t4", label: "Potenti porttitor", done: false },
+      { id: "t5", label: "Justo fermentum", done: false },
+      { id: "t6", label: "Urna sodales", done: false },
+    ],
+  },
+];
+
+const DUMMY_TODOS: TodoCard[] = [
+  {
+    id: "td1",
+    title: "Morbi lacus",
+    items: [
+      "Tortor viverra",
+      "Ultricies varius",
+      "Orci sociis",
+      "Rhoncus mattis",
+      "Aliquam nunc",
+      "Nec nisl",
+      "Posuere id",
+    ],
+  },
+  { id: "td2", title: "Volutpat cursus", items: ["Fermentum a", "Sed tincidunt", "Eget euismod"] },
+  { id: "td3", title: "Diam eget", items: ["Bibendum urna", "Viverra tortor", "Potenti porttitor", "Justo fermentum"] },
+];
+
+function toDate(iso: string) {
+  return parseISO(iso);
+}
+
+function isInEventRange(day: Date, e: EventItem) {
+  const s = toDate(e.start);
+  if (!e.end) return isSameDay(day, s);
+  const endInclusive = toDate(e.end);
+  return isWithinInterval(day, { start: s, end: endInclusive });
+}
+
+function formatRange(e: EventItem) {
+  const s = toDate(e.start);
+  if (!e.end) return format(s, "yyyy.MM.dd", { locale: ko });
+  const end = toDate(e.end);
+  return `${format(s, "yyyy.MM.dd", { locale: ko })} - ${format(end, "yyyy.MM.dd", { locale: ko })}`;
+}
+
+function pickTextColor(hex: string) {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return "#111827";
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.72 ? "#111827" : "#FFFFFF";
+}
+
+function ArrowRight() {
+  return (
+    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full border border-[#DDE7E7] text-[#0F172A]">
+      ›
+    </span>
+  );
+}
+
+function WeekHeader({
+  selectedDate,
+  onSelectDay,
+}: {
+  selectedDate: Date;
+  onSelectDay: (d: Date) => void;
+}) {
+  const start = startOfWeek(selectedDate, { weekStartsOn: 0 });
+  const days = new Array(7).fill(0).map((_, i) => addDays(start, i));
+  const dow = ["일", "월", "화", "수", "목", "금", "토"];
+
+  return (
+    <div className="grid grid-cols-7 gap-0 border-b border-[#9FE7E7]">
+      {days.map((d, idx) => {
+        const active = isSameDay(d, selectedDate);
+        return (
+          <button
+            key={d.toISOString()}
+            onClick={() => onSelectDay(d)}
+            className={[
+              "py-3 text-center transition",
+              active ? "bg-[#E6FAFA]" : "bg-white hover:bg-[#F4FEFE]",
+            ].join(" ")}
+          >
+            <div className="text-xs text-[#0F172A] font-semibold">{dow[idx]}</div>
+            <div className="text-xs text-[#0F172A] mt-1">{format(d, "d")}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function WeekBoard({
+  selectedDate,
+  events,
+}: {
+  selectedDate: Date;
+  events: EventItem[];
+}) {
+  const start = startOfWeek(selectedDate, { weekStartsOn: 0 });
+  const days = new Array(7).fill(0).map((_, i) => addDays(start, i));
+
+  return (
+    <div className="grid grid-cols-7 gap-6 pt-4">
+      {days.map((d) => {
+        const dayEvents = events.filter((e) => isInEventRange(d, e));
+        return (
+          <div key={d.toISOString()} className="min-w-[160px]">
+            <div className="space-y-3">
+              {dayEvents.map((e) => (
+                <div
+                  key={`${e.id}-${format(d, "yyyy-MM-dd")}`}
+                  className="bg-white rounded-xl border border-[#00BDBD] px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold text-[#0F172A] truncate">
+                      {e.title}
+                    </div>
+                    <ArrowRight />
+                  </div>
+
+                  <div className="text-[11px] text-[#9CA3AF] mt-1">
+                    {formatRange(e)}
+                  </div>
+
+                  {e.tasks && e.tasks.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {e.tasks.slice(0, 5).map((t) => (
+                        <div key={t.id} className="flex items-center gap-2 text-[11px]">
+                          <span
+                            className={[
+                              "inline-flex w-3 h-3 rounded-sm border",
+                              t.done
+                                ? "bg-[#00BDBD] border-[#00BDBD]"
+                                : "bg-white border-[#B8D9D9]",
+                            ].join(" ")}
+                          />
+                          <span className="text-[#0F172A] truncate">{t.label}</span>
+                        </div>
+                      ))}
+                      {e.tasks.length > 5 && (
+                        <div className="text-[11px] text-[#9CA3AF]">…</div>
+                      )}
+                    </div>
+                  )}
+
+                  {e.tags && e.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {e.tags.slice(0, 2).map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-[2px] rounded-full text-[10px] bg-[#DDF7F7] text-[#00A9A9]"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function MainForm() {
   const defaultClassNames = getDefaultClassNames();
   const calendarRef = useRef<FullCalendar | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [month, setMonth] = useState<Date>(new Date());
+
   const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const isMonth = viewMode === "month";
+
+  const [selectedDate, setSelectedDate] = useState<Date>(parseISO("2025-05-15"));
+  const [month, setMonth] = useState<Date>(parseISO("2025-05-01"));
   const [currentTitle, setCurrentTitle] = useState<string>(
-    format(new Date(), "yyyy년 M월", { locale: ko })
+    format(parseISO("2025-05-01"), "yyyy.MM", { locale: ko })
   );
 
-  const events: EventItem[] = [
-    { title: "Scelerisque mauris", start: "2025-05-05", color: "#5ccac2" },
-    { title: "Convallis egestas in aliquet", start: "2025-05-05", end: "2025-05-08", color: "#a9afb7" },
-    { title: "Fringilla arcu donec", start: "2025-05-15", color: "#f1726a" },
-    { title: "Turpis venenatis bibendum", start: "2025-05-18", color: "#2d3436" },
-    { title: "Nibh", start: "2025-05-23", color: "#81ecec" },
-  ];
+  const events = useMemo(() => DUMMY_EVENTS, []);
 
   const selectedDayEvents = useMemo(() => {
-    if (!selectedDate) return [];
-    return events.filter((e) => {
-      const s = parseISO(e.start);
-      if (e.end) {
-        const endInclusive = new Date(parseISO(e.end));
-        endInclusive.setDate(endInclusive.getDate() - 1);
-        return isWithinInterval(selectedDate, { start: s, end: endInclusive });
-      }
-      return isSameDay(s, selectedDate);
-    });
+    return events.filter((e) => isInEventRange(selectedDate, e));
   }, [selectedDate, events]);
+
+  const fcEvents = useMemo(() => {
+    return events.map((e) => ({
+      id: e.id,
+      title: e.title,
+      start: e.start,
+      end: e.end ? format(addDays(toDate(e.end), 1), "yyyy-MM-dd") : undefined,
+      extendedProps: { color: e.color },
+    }));
+  }, [events]);
 
   const goPrev = () => calendarRef.current?.getApi().prev();
   const goNext = () => calendarRef.current?.getApi().next();
 
   const changeView = (mode: ViewMode) => {
     setViewMode(mode);
-    const api = calendarRef.current?.getApi();
-    if (!api) return;
-    api.changeView(mode === "month" ? "dayGridMonth" : "dayGridWeek");
+    calendarRef.current?.getApi().changeView(
+      mode === "month" ? "dayGridMonth" : "dayGridWeek"
+    );
   };
 
   const onDatesSet = (_: DatesSetArg) => {
     const date = calendarRef.current?.getApi().getDate() ?? new Date();
-    setCurrentTitle(format(date, "yyyy년 M월", { locale: ko }));
+    setCurrentTitle(format(date, "yyyy.MM", { locale: ko }));
+    setMonth(date);
   };
 
-const onDateClick = (info: DateClickArg) => {
-  setSelectedDate(info.date);
-  setMonth(info.date); 
-};
+  const onDateClick = (info: DateClickArg) => {
+    setSelectedDate(info.date);
+    setMonth(info.date);
+  };
 
   return (
-    <div className="flex h-screen bg-white">
+    <div className="flex h-screen bg-[#FFFFFF]">
       <Sidebar active="Calendar" />
-      <main className="flex-1 bg-white overflow-y-auto">
-        <div className="px-8 py-8 pb-10 flex gap-6">
-          {/* 왼쪽: 버튼 기준으로 폭이 정해지는 컬럼 */}
-          <div className="shrink-0 flex flex-col gap-4 items-stretch">
-            {/* 버튼: 너비는 px-36 패딩으로 유지 */}
-            <button className="self-start border border-primary-300 text-primary-300 px-36 py-3 rounded-lg hover:bg-primary-400 shadow">
-              일정 추가하기
-            </button>
 
-            {/* 작은 달력 + 일정 현황 카드: 컬럼 너비를 그대로 따라감 */}
-            <div className="bg-black p-5 rounded-xl overflow-hidden">
-              {/* ---- DayPicker ---- */}
-              <div className="bg-white p-5 rounded-xl w-full overflow-hidden">
-                <DayPicker
-                  mode="single"
-                  month={month}
-                  onMonthChange={setMonth}
-                  selected={selectedDate}
-                  onSelect={(day) => {
-                    setSelectedDate(day);
-                    if (day) {
-                      const api = calendarRef.current?.getApi();
-                      api?.gotoDate(day);
-                      api?.select(day);
-                      setMonth(day);
-                    }
-                  }}
-                  weekStartsOn={0}
-                  locale={ko}
-                  hideNavigation
-                  components={{
-                    MonthCaption: (props: MonthCaptionProps) => {
-                      const { previousMonth, nextMonth, goToMonth } = useDayPicker();
-                      const curr = props.calendarMonth.date;
+      <main className="flex-1 overflow-hidden">
+        <div className="grid grid-cols-[320px_1fr] gap-10 h-full px-10">
+          <section className="pt-6 flex flex-col gap-6 min-h-0">
+            <div className="bg-white">
+              <DayPicker
+                mode="single"
+                month={month}
+                onMonthChange={setMonth}
+                selected={selectedDate}
+                onSelect={(day) => {
+                  if (!day) return;
+                  setSelectedDate(day);
+                  setMonth(day);
+                  if (isMonth) {
+                    calendarRef.current?.getApi().gotoDate(day);
+                  }
+                }}
+                weekStartsOn={0}
+                locale={ko}
+                hideNavigation
+                components={{
+                  MonthCaption: (props: MonthCaptionProps) => {
+                    const { previousMonth, nextMonth, goToMonth } = useDayPicker();
+                    const curr = props.calendarMonth.date;
 
-                      return (
-                        <div className="flex items-center justify-center gap-3 mb-2">
-                          <button
-                            type="button"
-                            onClick={() => previousMonth && goToMonth(previousMonth)}
-                            disabled={!previousMonth}
-                            className="px-2 text-gray-600 hover:text-primary-300 disabled:opacity-30"
-                          >
-                            {"<"}
-                          </button>
-                          <span className="font-semibold text-gray-800 text-primary-300">
-                            {format(curr, "yyyy.MM", { locale: ko })}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => nextMonth && goToMonth(nextMonth)}
-                            disabled={!nextMonth}
-                            className="px-2 text-gray-600 hover:text-primary-300 disabled:opacity-30"
-                          >
-                            {">"}
-                          </button>
-                        </div>
-                      );
-                    },
-                  }}
-                  classNames={{
-                    month: "w-full",
-                    head_cell: "text-center",
-                    cell: "text-center",
-                    today: "text-black",
-                    selected: "bg-primary-300 text-white rounded-full",
-                  }}
-                />
-              </div>
+                    return (
+                      <div className="flex items-center justify-center gap-4 mb-2">
+                        <button
+                          type="button"
+                          onClick={() => previousMonth && goToMonth(previousMonth)}
+                          disabled={!previousMonth}
+                          className="w-7 h-7 rounded-full text-gray-500 hover:text-[#00BDBD] disabled:opacity-30"
+                        >
+                          ‹
+                        </button>
+                        <span className="font-semibold text-[#00BDBD] text-sm">
+                          {format(curr, "yyyy.MM", { locale: ko })}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => nextMonth && goToMonth(nextMonth)}
+                          disabled={!nextMonth}
+                          className="w-7 h-7 rounded-full text-gray-500 hover:text-[#00BDBD] disabled:opacity-30"
+                        >
+                          ›
+                        </button>
+                      </div>
+                    );
+                  },
+                }}
+                classNames={{
+                  ...defaultClassNames,
+                  month: "w-full",
+                  head_row: "mb-1",
+                  head_cell: "text-center text-[11px] text-gray-400 font-semibold",
+                  row: "mt-1",
+                  cell: "text-center",
+                  day: "w-9 h-9 mx-auto rounded-full hover:bg-gray-50",
+                  today: "text-gray-900 font-semibold",
+                  selected: "bg-[#00BDBD] text-white rounded-full",
+                }}
+              />
+            </div>
 
-              {/* ---- 선택 날짜 일정 목록 ---- */}
-              <div className="mt-4">
-                <div className="text-sm text-gray-700 font-semibold mb-2">
-                  {selectedDate ? format(selectedDate, "yyyy.MM.dd (eee)", { locale: ko }) : ""}
+            {isMonth ? (
+              <div className="min-h-0">
+                <div className="text-sm font-semibold text-[#0F172A] mb-3">
+                  {format(selectedDate, "yyyy.MM.dd", { locale: ko })}
                 </div>
+
                 {selectedDayEvents.length === 0 ? (
                   <div className="text-xs text-gray-400">등록된 일정이 없습니다.</div>
                 ) : (
-                  <ul className="space-y-1">
-                    {selectedDayEvents.map((e, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span
-                          className="mt-1 inline-block w-2 h-2 rounded-full"
-                          style={{ backgroundColor: e.color }}
-                        />
-                        <span className="text-sm text-gray-700">{e.title}</span>
+                  <ul className="space-y-3">
+                    {selectedDayEvents.map((e) => (
+                      <li
+                        key={e.id}
+                        className="flex items-center justify-between text-[13px] text-[#0F172A]"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-gray-400">•</span>
+                          <span className="truncate">{e.title}</span>
+                        </div>
+                        <span className="text-gray-300">›</span>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
-            </div>
-          </div>
-
-
-          {/* ───────── 큰 캘린더 카드 ───────── */}
-          <div className="col-span-3 bg-white rounded-xl shadow p-4">
-            {/* 상단: 중앙 pill 네비 + 우측 원형 월/주 토글 */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-16" />
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={goPrev}
-                  className="w-9 h-9 rounded-xl border text-gray-700 hover:bg-gray-50"
-                  aria-label="이전"
-                >
-                  ‹
-                </button>
-                <div className="px-5 h-9 rounded-xl border flex items-center font-semibold text-gray-800">
-                  {currentTitle.replace(" ", " ")}
+            ) : (
+              <div className="min-h-0">
+                <div className="bg-[#F3F4F6] text-sm font-semibold text-[#0F172A] px-3 py-2 rounded-md">
+                  To Do
                 </div>
-                <button
-                  onClick={goNext}
-                  className="w-9 h-9 rounded-xl border text-gray-700 hover:bg-gray-50"
-                  aria-label="다음"
-                >
-                  ›
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => changeView("month")}
-                  className={[
-                    "w-9 h-9 rounded-full border text-sm",
-                    viewMode === "month"
-                      ? "bg-primary-300 text-white border-primary-300"
-                      : "text-gray-700 hover:bg-gray-50",
-                  ].join(" ")}
-                >
-                  월
-                </button>
-                <button
-                  onClick={() => changeView("week")}
-                  className={[
-                    "w-9 h-9 rounded-full border text-sm",
-                    viewMode === "week"
-                      ? "bg-primary-300 text-white border-primary-300"
-                      : "text-gray-700 hover:bg-gray-50",
-                  ].join(" ")}
-                >
-                  주
-                </button>
-              </div>
-            </div>
 
-            <div className="relative">
-              {/* FullCalendar */}
-              <FullCalendar
-                ref={calendarRef as any}
-                plugins={[dayGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth"
-                locale="ko"
-                headerToolbar={false}
-                height="auto"
-                firstDay={0}
-                events={events}
-                selectable
-                editable
-                dayMaxEventRows={3}
-                datesSet={onDatesSet}
-                dateClick={(info: DateClickArg) => onDateClick(info)}
-                dayCellContent={(arg: DayCellContentArg) => {
-                  const type = calendarRef.current?.getApi().view.type ?? "";
-                  const isMonth = type.includes("Month");
-                  const n = arg.date.getDate();
-                  // 월 뷰: 숫자만 간결하게
-                  return { html: `<div class="fc-daygrid-day-number">${isMonth ? `${n}` : `${n}`}</div>` };
-                }}
-                eventDisplay="block"
-                eventTextColor="#fff"
-                eventDidMount={(info) => {
-                  const el = info.el as HTMLElement;
-                  el.style.borderRadius = "8px";
-                  el.style.fontSize = "13px";
-                  el.style.padding = "4px 8px";
-                  el.style.border = "none";
-                }}
-              />
+                <div className="mt-3 space-y-4 overflow-auto pr-1">
+                  {DUMMY_TODOS.map((card) => (
+                    <div
+                      key={card.id}
+                      className="bg-white rounded-xl border border-[#00BDBD] px-4 py-3"
+                    >
+                      <div className="text-sm font-semibold text-[#00A9A9]">
+                        {card.title}
+                      </div>
+                      <div className="mt-2 space-y-1">
+                        {card.items.map((it, idx) => (
+                          <div key={idx} className="text-[11px] text-[#374151]">
+                            {it}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
 
-              {/* FullCalendar 스타일 오버라이드(두 번째 스샷처럼) */}
-              <style>{`
-                .fc {
-                  --fc-event-bg-color: transparent;
-                  --fc-today-bg-color: #fff8e1; /* 오늘 연노랑 하이라이트 */
-                }
-                /* 헤더(요일) */
-                .fc .fc-col-header-cell-cushion {
-                  color: #9ca3af;          /* gray-400 */
-                  font-weight: 600;
-                  padding: 6px 0;
-                }
-                /* 아웃라인을 줄이고 더 미니멀하게 */
-                .fc-theme-standard .fc-scrollgrid {
-                  border: 1px solid #f1f5f9; /* slate-100 */
-                  border-radius: 12px;
-                }
-                .fc-theme-standard td, 
-                .fc-theme-standard th {
-                  border: 1px solid #f1f5f9;
-                }
-                /* 날짜 숫자 */
-                .fc .fc-daygrid-day-number {
-                  color: #1f2937;          /* gray-800 */
-                  font-weight: 600;
-                  padding: 8px 10px;
-                }
-                /* 이벤트 칩: 배경색을 이벤트 컬러로 */
-                .fc .fc-daygrid-event {
-                  background: var(--event-color, #6b7280);
-                  box-shadow: 0 1px 0 rgba(0,0,0,0.04);
-                }
-                /* 각 이벤트별 색상 적용 */
-                .fc .fc-daygrid-event[style*="background-color"] { background: unset; }
-              `}</style>
-            </div>
-          </div>
+          <section className="pt-6 min-h-0 flex flex-col">
+            {isMonth ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <button
+                    className="px-10 h-11 rounded-md border border-[#00BDBD] text-[#00BDBD] font-semibold hover:bg-[#E6FAFA]"
+                    onClick={() => alert("일정 추가 모달 연결 예정")}
+                  >
+                    일정 추가하기
+                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={goPrev}
+                      className="w-9 h-9 rounded-full text-gray-700 hover:bg-gray-50"
+                      aria-label="이전"
+                    >
+                      ‹
+                    </button>
+
+                    <div className="px-10 h-11 rounded-md border border-[#B8D9D9] flex items-center font-semibold text-[#00BDBD]">
+                      {currentTitle}
+                    </div>
+
+                    <button
+                      onClick={goNext}
+                      className="w-9 h-9 rounded-full text-gray-700 hover:bg-gray-50"
+                      aria-label="다음"
+                    >
+                      ›
+                    </button>
+                  </div>
+
+                  {/* right: toggle */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => changeView("month")}
+                      className={[
+                        "w-10 h-10 rounded-full border text-sm font-semibold",
+                        isMonth
+                          ? "bg-[#00BDBD] text-white border-[#00BDBD]"
+                          : "border-[#B8D9D9] text-gray-700 hover:bg-gray-50",
+                      ].join(" ")}
+                    >
+                      월
+                    </button>
+                    <button
+                      onClick={() => changeView("week")}
+                      className={[
+                        "w-10 h-10 rounded-full border text-sm font-semibold",
+                        !isMonth
+                          ? "bg-[#00BDBD] text-white border-[#00BDBD]"
+                          : "border-[#B8D9D9] text-gray-700 hover:bg-gray-50",
+                      ].join(" ")}
+                    >
+                      주
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex-1 min-h-0">
+                  <FullCalendar
+                    ref={calendarRef as any}
+                    plugins={[dayGridPlugin, interactionPlugin]}
+                    initialView="dayGridMonth"
+                    locale="ko"
+                    headerToolbar={false}
+                    height="100%"
+                    firstDay={0}
+                    fixedWeekCount={true}
+                    showNonCurrentDates={true}
+                    datesSet={onDatesSet}
+                    dateClick={onDateClick}
+                    events={fcEvents}
+                    dayMaxEventRows={3}
+                    dayCellContent={(arg) => {
+                      const onlyNum = arg.dayNumberText.replace("일", "");
+                      return <span className="fc-day-num">{onlyNum}</span>;
+                    }}
+                    dayCellClassNames={(arg) => {
+                      const active = isSameDay(arg.date, selectedDate);
+                      return active ? ["ct-selected-day"] : [];
+                    }}
+                    eventDidMount={(info) => {
+                      const el = info.el as HTMLElement;
+                      const color = (info.event.extendedProps as any)?.color as string | undefined;
+                      if (color) el.style.backgroundColor = color;
+
+                      el.style.border = "none";
+                      el.style.boxShadow = "none";
+                      el.style.borderRadius = "8px";
+                      el.style.padding = "6px 10px";
+                      el.style.fontSize = "12px";
+                      el.style.lineHeight = "1.2";
+
+                      if (color) {
+                        el.style.color = pickTextColor(color);
+                      }
+                    }}
+                  />
+                </div>
+
+                <style>{`
+                  .fc-theme-standard .fc-scrollgrid,
+                  .fc-theme-standard td,
+                  .fc-theme-standard th {
+                    border: none !important;
+                  }
+                  .fc .fc-scrollgrid-section > * {
+                    border: none !important;
+                  }
+
+                  .fc .fc-col-header-cell-cushion {
+                    color: #9ca3af;
+                    font-weight: 600;
+                    padding: 12px 0;
+                  }
+
+                  .fc .fc-daygrid-day-top {
+                    display: flex !important;
+                    justify-content: center !important;
+                    align-items: center !important;
+                    padding-top: 16px;
+                    padding-bottom: 6px;
+                  }
+                  .fc .fc-daygrid-day-number {
+                    float: none !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                  }
+                  .fc .fc-day-num {
+                    font-weight: 700;
+                    color: #0f172a;
+                    display: inline-flex;
+                    width: 34px;
+                    height: 34px;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 999px;
+                  }
+
+                  .fc .ct-selected-day .fc-day-num {
+                    background: #00BDBD;
+                    color: white;
+                  }
+
+                  .fc .fc-day-other .fc-day-num {
+                    color: #cbd5e1;
+                  }
+
+                  .fc .fc-daygrid-day-frame {
+                    min-height: 120px;
+                  }
+
+                  .fc .fc-daygrid-event,
+                  .fc .fc-event,
+                  .fc .fc-event-main {
+                    border: none !important;
+                    box-shadow: none !important;
+                  }
+                  .fc .fc-daygrid-event-harness {
+                    margin: 4px 14px;
+                  }
+
+                  .fc {
+                    --fc-today-bg-color: transparent;
+                  }
+                `}</style>
+              </>
+            ) : (
+              <>
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute left-0 text-3xl font-extrabold text-[#0F172A]">
+                    {format(selectedDate, "yyyy.MM.dd (eee)", { locale: ko })}
+                  </div>
+
+                  <button
+                    className="px-10 h-11 rounded-md border border-[#00BDBD] text-[#00BDBD] font-semibold hover:bg-[#E6FAFA] flex items-center gap-2"
+                    onClick={() => alert("일정 추가 모달 연결 예정")}
+                  >
+                    <span className="text-base">✎</span>
+                    일정 추가하기
+                  </button>
+
+                  <div className="absolute right-0 flex items-center gap-2">
+                    <button
+                      onClick={() => changeView("month")}
+                      className="w-10 h-10 rounded-full border border-[#B8D9D9] text-gray-700 hover:bg-gray-50 font-semibold"
+                    >
+                      월
+                    </button>
+                    <button
+                      onClick={() => changeView("week")}
+                      className="w-10 h-10 rounded-full bg-[#00BDBD] text-white border border-[#00BDBD] font-semibold"
+                    >
+                      주
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <WeekHeader selectedDate={selectedDate} onSelectDay={setSelectedDate} />
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-x-auto pb-6">
+                  <WeekBoard selectedDate={selectedDate} events={events} />
+                </div>
+              </>
+            )}
+          </section>
         </div>
       </main>
     </div>
   );
-};
-
-export default MainForm;
+}
