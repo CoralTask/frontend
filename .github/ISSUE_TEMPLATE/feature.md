@@ -1,12 +1,6 @@
----
-name: Feature
-about: 새로운 기능 추가
-title: 'Issue : '
-labels: feature
-assignees: ''
-
----
-
+name: "✨ Feature"
+description: "새로운 기능 추가"
+labels: ["feature"]
 body:
   - type: textarea
     attributes:
