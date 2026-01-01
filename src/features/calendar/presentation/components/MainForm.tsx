@@ -56,7 +56,6 @@ const DUMMY_EVENTS: EventItem[] = [
   { id: "3", title: "Fringilla arcu donec", start: "2025-12-15", color: "#F1726A" },
   { id: "4", title: "Turpis venenatis bibendum", start: "2025-12-19", color: "#2D3436" },
   { id: "5", title: "Nibh", start: "2025-12-23", color: "#BFEFF0" },
-
   {
     id: "w1",
     title: "Massa volutpat",
@@ -173,9 +172,7 @@ function WeekBoard({ selectedDate, events }: { selectedDate: Date; events: Event
                     <div className="text-sm font-semibold text-[#0F172A] truncate">{e.title}</div>
                     <ArrowRight />
                   </div>
-
                   <div className="text-[11px] text-[#9CA3AF] mt-1">{formatRange(e)}</div>
-
                   {e.tasks && e.tasks.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {e.tasks.slice(0, 5).map((t) => (
@@ -191,7 +188,6 @@ function WeekBoard({ selectedDate, events }: { selectedDate: Date; events: Event
                       ))}
                     </div>
                   )}
-
                   {e.tags && e.tags.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {e.tags.slice(0, 2).map((tag) => (
@@ -301,10 +297,22 @@ export default function MainForm() {
                 locale={ko}
                 hideNavigation
                 modifiers={{
-                  selectedWeek: !isMonth ? { from: weekStart, to: weekEnd } : undefined,
+                  ...(isMonth
+                    ? {}
+                    : {
+                      selectedWeek: { from: weekStart, to: weekEnd },
+                      selectedWeekStart: (d) => isSameDay(d, weekStart),
+                      selectedWeekEnd: (d) => isSameDay(d, weekEnd),
+                    }),
                 }}
                 modifiersClassNames={{
-                  selectedWeek: "ct-mini-week",
+                  ...(isMonth
+                    ? {}
+                    : {
+                      selectedWeek: "ct-mini-week",
+                      selectedWeekStart: "ct-mini-week-start",
+                      selectedWeekEnd: "ct-mini-week-end",
+                    }),
                 }}
                 components={{
                   MonthCaption: (props: MonthCaptionProps) => {
@@ -340,10 +348,10 @@ export default function MainForm() {
                   head_row: "mb-1",
                   head_cell: "text-center text-[11px] text-gray-400 font-semibold",
                   row: "mt-1",
-                  cell: "text-center",
+                  cell: "ct-mini-cell text-center",
                   day: "w-9 h-9 mx-auto rounded-full hover:bg-gray-50",
                   today: "text-gray-900 font-semibold",
-                  selected: "bg-[#00BDBD] text-white rounded-full",
+                  selected: "ct-selected-date-circle",
                 }}
               />
             </div>
@@ -351,7 +359,6 @@ export default function MainForm() {
             {isMonth ? (
               <div className="min-h-0 pt-2">
                 <div className="text-sm font-semibold text-[#0F172A] mb-3">{format(selectedDate, "yyyy.MM.dd", { locale: ko })}</div>
-
                 {selectedDayEvents.length === 0 ? (
                   <div className="text-xs text-gray-400">등록된 일정이 없습니다.</div>
                 ) : (
@@ -371,7 +378,6 @@ export default function MainForm() {
             ) : (
               <div className="min-h-0 pt-2">
                 <div className="bg-[#F3F4F6] text-sm font-semibold text-[#0F172A] px-3 py-2 rounded-md">To Do</div>
-
                 <div className="mt-3 space-y-4 overflow-auto pr-1">
                   {DUMMY_TODOS.map((card) => (
                     <div key={card.id} className="bg-white rounded-xl border border-[#00BDBD] px-4 py-3">
@@ -390,7 +396,46 @@ export default function MainForm() {
             )}
 
             <style>{`
-              .ct-mini-week { background: #E6FAFA !important; border-radius: 999px !important; }
+              .ct-mini-week {
+                background: #E6FAFA !important;
+                border-radius: 0 !important;
+              }
+              .ct-mini-week-start {
+                border-top-left-radius: 999px !important;
+                border-bottom-left-radius: 999px !important;
+              }
+              .ct-mini-week-end {
+                border-top-right-radius: 999px !important;
+                border-bottom-right-radius: 999px !important;
+              }
+
+              .ct-selected-date-circle,
+              .rdp-day_selected {
+                position: relative !important;
+                z-index: 0 !important;      
+                color: #fff !important;  
+              }
+
+              .ct-selected-date-circle::after,
+              .rdp-day_selected::after {
+                content: "";
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                width: 36px;
+                height: 36px;
+                transform: translate(-50%, -50%);
+                border-radius: 999px;
+                background: #00BDBD;
+                z-index: -1 !important;   
+              }
+
+              .ct-selected-date-circle .rdp-day_button,
+              .ct-selected-date-circle .rdp-button_reset,
+              .rdp-day_selected .rdp-day_button,
+              .rdp-day_selected .rdp-button_reset {
+                background: transparent !important;
+              }
             `}</style>
           </section>
 
@@ -399,34 +444,19 @@ export default function MainForm() {
               <>
                 <div className="flex items-center justify-between">
                   <div className="w-[320px] h-11 rounded-md border border-[#B8D9D9] flex items-center justify-between px-3">
-                    <button onClick={goPrev} className="w-8 h-8 rounded-full hover:bg-gray-50 text-gray-700" aria-label="이전">
-                      ‹
-                    </button>
+                    <button onClick={goPrev} className="w-8 h-8 rounded-full hover:bg-gray-50 text-gray-700" aria-label="이전">‹</button>
                     <div className="font-semibold text-[#00BDBD]">{currentTitle}</div>
-                    <button onClick={goNext} className="w-8 h-8 rounded-full hover:bg-gray-50 text-gray-700" aria-label="다음">
-                      ›
-                    </button>
+                    <button onClick={goNext} className="w-8 h-8 rounded-full hover:bg-gray-50 text-gray-700" aria-label="다음">›</button>
                   </div>
-
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => changeView("month")}
-                      className={[
-                        "w-10 h-10 rounded-full border text-sm font-semibold",
-                        isMonth ? "bg-[#00BDBD] text-white border-[#00BDBD]" : "border-[#B8D9D9] text-gray-700 hover:bg-gray-50",
-                      ].join(" ")}
-                    >
-                      월
-                    </button>
+                      className={["w-10 h-10 rounded-full border text-sm font-semibold", isMonth ? "bg-[#00BDBD] text-white border-[#00BDBD]" : "border-[#B8D9D9] text-gray-700 hover:bg-gray-50"].join(" ")}
+                    >월</button>
                     <button
                       onClick={() => changeView("week")}
-                      className={[
-                        "w-10 h-10 rounded-full border text-sm font-semibold",
-                        !isMonth ? "bg-[#00BDBD] text-white border-[#00BDBD]" : "border-[#B8D9D9] text-gray-700 hover:bg-gray-50",
-                      ].join(" ")}
-                    >
-                      주
-                    </button>
+                      className={["w-10 h-10 rounded-full border text-sm font-semibold", !isMonth ? "bg-[#00BDBD] text-white border-[#00BDBD]" : "border-[#B8D9D9] text-gray-700 hover:bg-gray-50"].join(" ")}
+                    >주</button>
                   </div>
                 </div>
 
@@ -445,21 +475,19 @@ export default function MainForm() {
                     datesSet={onDatesSet}
                     dateClick={onDateClick}
                     events={fcEvents}
-                    eventOrder={"allDay,-duration,title"}
+                    eventOrder={"-duration,allDay,title"}
                     dayMaxEventRows={3}
                     moreLinkClick="popover"
                     dayCellContent={(arg) => {
                       const onlyNum = arg.dayNumberText.replace("일", "");
                       return <span className="fc-day-num">{onlyNum}</span>;
                     }}
-                    dayCellClassNames={(arg) => {
-                      const active = isSameDay(arg.date, selectedDate);
-                      return active ? ["ct-selected-day"] : [];
-                    }}
-                    eventContent={(arg) => {
-                      const title = arg.isStart ? arg.event.title : "";
-                      return <div className="ct-center-title">{title}</div>;
-                    }}
+                    dayCellClassNames={(arg) => isSameDay(arg.date, selectedDate) ? ["ct-selected-day"] : []}
+                    eventContent={(arg) => (
+                      <div className="ct-event-inner-wrapper">
+                        {arg.isStart ? arg.event.title : ""}
+                      </div>
+                    )}
                     eventDidMount={(info) => {
                       const el = info.el as HTMLElement;
                       const color = (info.event.extendedProps as any)?.color as string | undefined;
@@ -474,133 +502,28 @@ export default function MainForm() {
                 </div>
 
                 <style>{`
-                  .fc-theme-standard .fc-scrollgrid,
-                  .fc-theme-standard td,
-                  .fc-theme-standard th { border: none !important; }
+                  .fc-theme-standard .fc-scrollgrid, .fc-theme-standard td, .fc-theme-standard th { border: none !important; }
                   .fc .fc-scrollgrid-section > * { border: none !important; }
-
-                  .fc .fc-col-header-cell-cushion {
-                    color: #9ca3af;
-                    font-weight: 600;
-                    padding: 12px 0;
-                  }
-
-                  .fc .fc-daygrid-day-top {
-                    display: flex !important;
-                    justify-content: center !important;
-                    align-items: center !important;
-                    padding-top: 10px;
-                    padding-bottom: 6px;
-                    position: relative;
-                    z-index: 2;
-                  }
-
-                  .fc .fc-daygrid-day-number {
-                    float: none !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                  }
-
-                  .fc .fc-day-num {
-                    font-weight: 700;
-                    color: #0f172a;
-                    display: inline-flex;
-                    width: 34px;
-                    height: 34px;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 999px;
-                    background: transparent;
-                  }
-
-                  .fc .ct-selected-day .fc-day-num {
-                    background: #00BDBD;
-                    color: white;
-                  }
-
+                  .fc .fc-col-header-cell-cushion { color: #9ca3af; font-weight: 600; padding: 12px 0; }
+                  .fc .fc-daygrid-day-top { display: flex !important; justify-content: center !important; align-items: center !important; padding-top: 10px; padding-bottom: 6px; position: relative; z-index: 2; }
+                  .fc .fc-daygrid-day-number { float: none !important; padding: 0 !important; margin: 0 !important; }
+                  .fc .fc-day-num { font-weight: 700; color: #0f172a; display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 999px; background: transparent; }
+                  .fc .ct-selected-day .fc-day-num { background: #00BDBD; color: white; }
                   .fc .fc-day-other .fc-day-num { color: #cbd5e1; }
-
-                  .fc .fc-daygrid-day-frame {
-                    height: 112px !important;
-                    overflow-y: hidden !important;
-                    overflow-x: visible !important;
-                  }
-                    .fc .fc-daygrid-row,
-                    .fc .fc-daygrid-row-frame,
-                    .fc .fc-scrollgrid-sync-table,
-                    .fc .fc-scroller {
-                      overflow: visible !important;
-                    }
+                  .fc .fc-daygrid-day-frame { height: 112px !important; overflow: visible !important; }
+                  .fc .fc-daygrid-row, .fc .fc-daygrid-row-frame, .fc .fc-scrollgrid-sync-table, .fc .fc-scroller { overflow: visible !important; }
                   .fc .fc-daygrid-body tbody tr { height: 112px !important; }
-
-                  .fc .fc-daygrid-day-events {
-                    margin-top: 0 !important;
-                    padding-top: 0 !important;
-                    overflow: visible !important;
-                  }
-
-                  .fc { 
-                    --fc-today-bg-color: transparent;
-                    --fc-daygrid-event-margin: 2px;
-                  }
-
-                  .fc .fc-daygrid-event-harness,
-                  .fc .fc-daygrid-event-harness-abs { margin: 0 !important; }
-
-                  .fc .fc-h-event {
-                    border: 0 !important;
-                    box-shadow: none !important;
-                    height: 22px !important;
-                    line-height: 22px !important;
-                    border-radius: 0 !important;
-                    margin: 0 !important;
-                  }
-
-                  .fc .fc-h-event .fc-event-main { padding: 0 10px !important; }
-
-                  .fc .fc-h-event.fc-event-start {
-                    margin-left: 10px !important;
-                    border-top-left-radius: 9999px !important;
-                    border-bottom-left-radius: 9999px !important;
-                  }
-                  .fc .fc-h-event.fc-event-end {
-                    margin-right: 10px !important;
-                    border-top-right-radius: 9999px !important;
-                    border-bottom-right-radius: 9999px !important;
-                  }
-
-                  .ct-center-title{
-                    width: 100%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    overflow: hidden;
-                    white-space: nowrap;
-                    text-overflow: ellipsis;
-                    font-size: 12px;
-                    font-weight: 600;
-                  }
-
-                  .fc .fc-h-event .fc-event-title,
-                  .fc .fc-h-event .fc-event-title-container {
-                    overflow: hidden !important;
-                    text-overflow: ellipsis !important;
-                    white-space: nowrap !important;
-                  }
-
-                  .fc .fc-daygrid-more-link {
-                    display: block !important;
-                    margin: 2px 10px 0 !important;
-                    line-height: 22px !important;
-                    font-size: 12px !important;
-                    color: #0f172a !important;
-                    background: #ffffff !important;
-                    position: relative !important;
-                    z-index: 10 !important;
-                    width: fit-content !important;
-                    padding: 0 4px !important;
-                    border-radius: 6px !important;
-                  }
+                  .fc .fc-daygrid-day-events { margin-top: 0 !important; padding-top: 0 !important; overflow: visible !important; min-height: 1px; }
+                  .fc { --fc-today-bg-color: transparent; --fc-daygrid-event-margin: 2px; }
+                  .fc .fc-daygrid-event-harness, .fc .fc-daygrid-event-harness-abs { margin: 0 !important; }
+                  .fc .fc-h-event { display: block !important; height: 22px !important; border-radius: 0 !important; border: none !important; overflow: visible !important; }
+                  .fc-daygrid-event { margin-top: 1px !important; margin-bottom: 1px !important; }
+                  .fc .fc-h-event .fc-event-main { padding: 0 !important; display: flex !important; align-items: center !important; height: 100% !important; }
+                  .fc .fc-h-event.fc-event-start { margin-left: 10px !important; border-top-left-radius: 9999px !important; border-bottom-left-radius: 9999px !important; }
+                  .fc .fc-h-event.fc-event-end { margin-right: 10px !important; border-top-right-radius: 9999px !important; border-bottom-right-radius: 9999px !important; }
+                  .ct-event-inner-wrapper { width: 100%; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; padding: 0 4px; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1; }
+                  .fc .fc-h-event .fc-event-title, .fc .fc-h-event .fc-event-title-container { overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+                  .fc .fc-daygrid-more-link { display: block !important; margin: 2px 10px 0 !important; line-height: 22px !important; font-size: 12px !important; color: #0f172a !important; background: #ffffff !important; position: relative !important; z-index: 10 !important; width: fit-content !important; padding: 0 4px !important; border-radius: 6px !important; }
                 `}</style>
               </>
             ) : (
@@ -610,36 +533,16 @@ export default function MainForm() {
                     className="w-[320px] h-11 rounded-md border border-[#00BDBD] text-[#00BDBD] font-semibold hover:bg-[#E6FAFA] flex items-center justify-center gap-2"
                     onClick={() => alert("일정 추가 모달 연결 예정")}
                   >
-                    <span className="text-base">✎</span>
-                    일정 추가하기
+                    <span className="text-base">✎</span>일정 추가하기
                   </button>
-
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => changeView("month")}
-                      className="w-10 h-10 rounded-full border border-[#B8D9D9] text-gray-700 hover:bg-gray-50 font-semibold"
-                    >
-                      월
-                    </button>
-                    <button
-                      onClick={() => changeView("week")}
-                      className="w-10 h-10 rounded-full bg-[#00BDBD] text-white border border-[#00BDBD] font-semibold"
-                    >
-                      주
-                    </button>
+                    <button onClick={() => changeView("month")} className="w-10 h-10 rounded-full border border-[#B8D9D9] text-gray-700 hover:bg-gray-50 font-semibold">월</button>
+                    <button onClick={() => changeView("week")} className="w-10 h-10 rounded-full bg-[#00BDBD] text-white border border-[#00BDBD] font-semibold">주</button>
                   </div>
                 </div>
-
                 <div className="mt-6">
-                  <WeekHeader
-                    selectedDate={selectedDate}
-                    onSelectDay={(d) => {
-                      setSelectedDate(d);
-                      setMonth(d);
-                    }}
-                  />
+                  <WeekHeader selectedDate={selectedDate} onSelectDay={(d) => { setSelectedDate(d); setMonth(d); }} />
                 </div>
-
                 <div className="flex-1 min-h-0 overflow-x-auto pb-6">
                   <WeekBoard selectedDate={selectedDate} events={events} />
                 </div>
